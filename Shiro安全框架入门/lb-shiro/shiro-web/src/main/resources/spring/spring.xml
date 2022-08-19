@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <import resource="spring-redis.xml"/>
+    <context:component-scan base-package="com.lb"/>
+
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"/>
+        <!--定义登陆的url-->
+        <property name="loginUrl" value="login.html"/>
+        <!--定义没有权限访问跳转的url-->
+        <property name="unauthorizedUrl" value="403.html"/>
+        <property name="filterChainDefinitions">
+            <value>
+                <!--anon 不用登陆也可以访问-->
+                /login.html = anon
+                /subLogin = anon
+                <!--需要admin角色才能访问-->
+                /testRole = roles["admin"]
+                <!--需要admin和admin1角色才能访问 -->
+                /testRole1 = roles["admin","admin1"]
+                <!--需要拥有user:delete权限字符才能访问 -->
+                /testPerms = perms["user:delete"]
+                <!--需要拥有user:delete和user:add权限字符才能访问 -->
+                /testPerms1 = perms["user:delete","user:add"]
+
+                /testRole1 = rolesOr["admin","admin1"]
+                <!--authc 登陆之后才可以访问-->
+                /* = authc
+            </value>
+        </property>
+        <property name="filters">
+            <util:map>
+                <entry key="rolesOr" value-ref="rolesOrFilter"/>
+            </util:map>
+        </property>
+    </bean>
+
+    <bean id="rolesOrFilter" class="com.lb.filter.RolesOrFilter"/>
+
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <!-- 创建 SecurityManager 对象 -->
+        <property name="realm" ref="realm"/>
+        <property name="sessionManager" ref="sessionManager"/>
+        <property name="cacheManager" ref="cacheManager"/>
+        <property name="rememberMeManager" ref="cookieRememberMeManager"/>
+    </bean>
+
+    <bean id="realm" class="com.lb.shiro.realm.CustomRealm">
+        <!--配置加密-->
+        <property name="credentialsMatcher" ref="credentialsMatcher"/>
+    </bean>
+
+    <!--配置加密-->
+    <bean id="credentialsMatcher" class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+        <!--加密算法名称-->
+        <property name="hashAlgorithmName" value="md5"/>
+        <!--加密次数-->
+        <property name="hashIterations" value="1"/>
+    </bean>
+
+    <!-- 使用默认的 sessionManager 会频繁的操作读 redis 使用自定义的 CustomSessionManager -->
+    <!--<bean id="sessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">-->
+    <bean id="sessionManager" class="com.lb.session.CustomSessionManager">
+        <property name="sessionDAO" ref="redisSessionDao"/>
+    </bean>
+    <bean id="redisSessionDao" class="com.lb.session.RedisSessionDao"/>
+
+
+    <bean id="cacheManager" class="com.lb.cache.RedisCacheManager"/>
+
+
+    <bean id="cookieRememberMeManager" class="org.apache.shiro.web.mgt.CookieRememberMeManager">
+        <property name="cookie" ref="cookie"/>
+    </bean>
+
+    <bean id="cookie" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <constructor-arg value="rememberMe"/>
+        <property name="maxAge" value="600000"/>
+    </bean>
+
+
+</beans>
